@@ -13,10 +13,6 @@ def clean_column_name(col_name):
     # Convert to string in case it's a numeric column name
     col_name = str(col_name)
     
-    # Special handling for the 'Policy' field to ensure it stays exactly as 'Policy'
-    if col_name.strip() == 'Policy':
-        return 'Policy'
-    
     # First trim any leading/trailing spaces
     col_name = col_name.strip()
     
@@ -117,9 +113,6 @@ def excel_to_mssql(excel_path, server, database, username=None, password=None, t
             table_name = clean_column_name(sheet_name)
             print(f"Processing sheet: {sheet_name} -> Table: {table_name}")
             
-            # Read the sheet
-            df = pd.read_excel(xls, sheet_name, dtype={'Policy': str})
-            
             if df.empty:
                 print(f"Sheet '{sheet_name}' is empty. Skipping.")
                 continue
@@ -152,43 +145,30 @@ def excel_to_mssql(excel_path, server, database, username=None, password=None, t
             # Create a more robust table creation method with specific SQL types
             create_table_sql = f"CREATE TABLE {table_name} (\n"
             columns = []
-            
-            # Track if the table has a Policy column for primary key
-            has_policy_column = False
-            for col in df.columns:
-                if clean_column_name(col) == 'Policy':
-                    has_policy_column = True
-                    break
                     
             for col in df.columns:
                 # Get the cleaned column name
                 clean_col = clean_column_name(col)
+                sql_type = "VARCHAR(255)"  # Default type
                 
-                # Special handling for Policy column
-                if clean_col == 'Policy':
-                    # Always set Policy as VARCHAR(8), but not as primary key
-                    sql_type = "VARCHAR(8)"
-                else:
-                    sql_type = "VARCHAR(255)"  # Default type
-                
-                    # Infer SQL type from pandas Series
-                    dtype = df[col].dtype
-                    if pd.api.types.is_integer_dtype(dtype):
-                        sql_type = "INT"
-                    elif pd.api.types.is_float_dtype(dtype):
-                        sql_type = "FLOAT"
-                    elif pd.api.types.is_datetime64_dtype(dtype):
-                        sql_type = "DATETIME2"
-                    elif pd.api.types.is_bool_dtype(dtype):
-                        sql_type = "BIT"
-                    elif pd.api.types.is_string_dtype(dtype):
-                        # Get max length
-                        max_len = df[col].astype(str).str.len().max()
-                        if pd.isna(max_len):
-                            max_len = 100
-                        else:
-                            max_len = min(max(int(max_len * 1.5), 10), 4000)  # Ensure enough space
-                        sql_type = f"VARCHAR({max_len})"
+                # Infer SQL type from pandas Series
+                dtype = df[col].dtype
+                if pd.api.types.is_integer_dtype(dtype):
+                    sql_type = "INT"
+                elif pd.api.types.is_float_dtype(dtype):
+                    sql_type = "FLOAT"
+                elif pd.api.types.is_datetime64_dtype(dtype):
+                    sql_type = "DATETIME2"
+                elif pd.api.types.is_bool_dtype(dtype):
+                    sql_type = "BIT"
+                elif pd.api.types.is_string_dtype(dtype):
+                    # Get max length
+                    max_len = df[col].astype(str).str.len().max()
+                    if pd.isna(max_len):
+                        max_len = 100
+                    else:
+                        max_len = min(max(int(max_len * 1.5), 10), 4000)  # Ensure enough space
+                    sql_type = f"VARCHAR({max_len})"
                 
                 columns.append(f"[{col}] {sql_type}")
             
@@ -199,20 +179,6 @@ def excel_to_mssql(excel_path, server, database, username=None, password=None, t
             with odbc_conn.cursor() as cursor:
                 cursor.execute(create_table_sql)
                 odbc_conn.commit()
-            
-            # Insert data using fast_executemany
-            # Handle data formatting for Policy fields to preserve leading zeros
-            if 'Policy' in df.columns:
-                # Check if pandas converted Policy to numeric type (which would lose leading zeros)
-                if pd.api.types.is_numeric_dtype(df['Policy'].dtype):
-                    # Convert to string and pad with leading zeros to ensure 8 characters
-                    df['Policy'] = df['Policy'].astype(str).str.zfill(8)
-                else:
-                    # If it's already string type, still ensure proper padding
-                    df['Policy'] = df['Policy'].astype(str).str.zfill(8)
-                
-                # Force Policy column to be exactly 8 characters
-                df['Policy'] = df['Policy'].str.slice(0, 8)
             
             # Convert DataFrame to list of tuples for insertion
             # Use the DataFrame after string conversion to preserve leading zeros
