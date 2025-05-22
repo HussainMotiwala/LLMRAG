@@ -1,0 +1,49 @@
+# Core components
+langchain
+langchain-community
+langchain-core
+langchain-experimental
+
+# Vector database
+chromadb
+
+# SQL and database
+sqlalchemy
+pymysql
+psycopg2-binary
+python-dotenv
+pyodbc
+pypdf
+
+# LLM related - simplified since using Ollama
+langchain-ollama
+requests
+
+# Web search
+google-search-results
+
+# Web framework
+fastapi
+uvicorn
+streamlit
+pydantic
+
+# Utilities
+pandas
+numpy
+matplotlib
+seaborn
+python-multipart
+aiohttp
+jinja2
+
+# Monitoring and observability
+langsmith
+
+#vectorstore
+chromadb
+faiss-cpu
+
+sentence-transformers
+transformers
+torch
